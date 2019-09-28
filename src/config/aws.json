@@ -1,0 +1,11 @@
+{
+  "Auth": {
+    "region": "eu-west-1",
+
+    "identityPoolRegion": "eu-west-1",
+
+    "userPoolId": "eu-west-1_AFqByaecb",
+
+    "userPoolWebClientId": "7ubo85sakatf6d64ajll2e797f"
+  }
+}
