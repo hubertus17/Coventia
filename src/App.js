@@ -1,4 +1,8 @@
 import React from 'react';
+import ReactS3 from 'react-s3';
+
+
+import SimpleReactValidator from 'simple-react-validator';
 import './App.css';
 import Amplify from "aws-amplify";
 import { withAuthenticator } from "aws-amplify-react";
@@ -11,6 +15,13 @@ import awsConfig from "./config/aws"
 
 Amplify.configure(awsConfig);
 
+const config = {
+    bucketName: 'filedirforses',
+    dirName: 'files', /* optional */
+    region: 'eu-west-1',
+    accessKeyId: 'AKIAIUWUDI76PDXISUEA',
+    secretAccessKey: '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',
+}
 
 const sendMailEnpoint = "/SES-sendMail"
 
@@ -20,12 +31,16 @@ class App extends React.Component {
 
         this.state = {
             user: {},
-            userName: ""
+            nipNip: "",
+            compName: "",
+            address: ""
         }
 
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
     }
+
+
 
     componentDidMount() {
         Auth.currentAuthenticatedUser({
@@ -38,15 +53,16 @@ class App extends React.Component {
     }
 
     handleChange(event) {
-        this.setState({ userName: event.target.value });
+        const target = event.target;
+        const name = target.name;
+
+        this.setState({ [name]: event.target.value });
     }
 
     async handleSubmit(event) {
         event.preventDefault();
 
         try {
-
-
             const result = await fetch(sendMailEnpoint, {
                 method: 'POST',
                 headers: {
@@ -54,7 +70,9 @@ class App extends React.Component {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    userName: this.state.userName
+                    nipNip: this.state.nipNip,
+                    compName: this.state.compName,
+                    address: this.state.address
                 })
             }).then(resp => resp.json());
 
@@ -66,18 +84,50 @@ class App extends React.Component {
         }
     }
 
+    async upload(e) {
+        console.log(e.target.files[0]);
+        let data = await ReactS3.uploadFile(e.target.files[0], config)
+        console.log(data);
+
+        this.setState({ "attachmentUrl": data.location })
+
+    }
+
     render() {
         return (
             <div className="App">
                 {/* <JSONPretty id="json-pretty" style={{ textAlign: "left" }} data={this.state.user}></JSONPretty> */}
                 <form onSubmit={this.handleSubmit}>
                     <label>
-                        Imię:
+                        NIP :
                         <input
                             type="text"
-                            name="userName"
-                            value={this.state.userName}
+                            name="nipNip"
+                            value={this.state.nipNip}
                             onChange={this.handleChange} />
+                    </label>
+                    <label>
+                        Pełna nazwa firmy :
+                        <input
+                            type="text"
+                            name="compName"
+                            value={this.state.compName}
+                            onChange={this.handleChange} />
+                    </label>
+                    <label>
+                        Adres :
+                        <input
+                            type="text"
+                            name="address"
+                            value={this.state.address}
+                            onChange={this.handleChange} />
+                    </label>
+                    <label>
+                        Dodaj plik :
+                        <input
+                            type="file"
+                            onChange={this.upload}
+                        />
                     </label>
                     <input type="submit" value="Wyślij" />
                 </form>
@@ -93,5 +143,5 @@ export default (withAuthenticator(App, {
 // aws cognito-idp sign-up \
 //   --region eu-west-1 \
 //   --client-id 7ubo85sakatf6d64ajll2e797f \
-//   --username kubakunc@gmail.com \
+//   --nipNip kubakunc@gmail.com \
 //   --password Passw0rd!
