@@ -1,27 +1,25 @@
 import React from 'react';
-import ReactS3 from 'react-s3';
-
-
-import SimpleReactValidator from 'simple-react-validator';
 import './App.css';
-import Amplify from "aws-amplify";
-import { withAuthenticator } from "aws-amplify-react";
-import { Auth } from 'aws-amplify'
-// import JSONPretty from 'react-json-pretty';
+import Amplify, {Auth, Storage} from "aws-amplify";
+import {withAuthenticator} from "aws-amplify-react";
 import 'whatwg-fetch'
 import 'react-json-pretty/themes/monikai.css';
 
-import awsConfig from "./config/aws"
+const configAWS = {
+    Auth: {
+        identityPoolId: process.env.REACT_APP_identityPoolId,
+        region: process.env.REACT_APP_region,
+        userPoolId: process.env.REACT_APP_userPoolId,
+        userPoolWebClientId: process.env.REACT_APP_userPoolWebClientId,
+    },
+    Storage: {
+        bucket: process.env.REACT_APP_Bucket_name,
+        region: process.env.REACT_APP_region,
+        identityPoolId: process.env.REACT_APP_identityPoolId
+    }
+};
 
-Amplify.configure(awsConfig);
-
-const config = {
-    bucketName: 'filedirforses',
-    dirName: 'files', /* optional */
-    region: 'eu-west-1',
-    accessKeyId: 'AKIAIUWUDI76PDXISUEA',
-    secretAccessKey: '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',
-}
+Amplify.configure(configAWS);
 
 const sendMailEnpoint = "/SES-sendMail"
 
@@ -33,7 +31,13 @@ class App extends React.Component {
             user: {},
             nipNip: "",
             compName: "",
-            address: ""
+            phone: "",
+            address: "",
+            imageName: "",
+            imageFile: "",
+            response: "",
+            attachment: "",
+            sent: false
         }
 
         this.handleChange = this.handleChange.bind(this);
@@ -59,9 +63,7 @@ class App extends React.Component {
         this.setState({ [name]: event.target.value });
     }
 
-    async handleSubmit(event) {
-        event.preventDefault();
-
+    async handleSubmit() {
         try {
             const result = await fetch(sendMailEnpoint, {
                 method: 'POST',
@@ -72,65 +74,132 @@ class App extends React.Component {
                 body: JSON.stringify({
                     nipNip: this.state.nipNip,
                     compName: this.state.compName,
-                    address: this.state.address
+                    address: this.state.address,
+                    phone: this.state.phone,
+                    attachment: `https://${configAWS.Storage.bucket}.s3-eu-west-1.amazonaws.com/public/userFiles/` + this.state.attachment
                 })
             }).then(resp => resp.json());
+            this.setState({
+                user: {},
+                nipNip: "",
+                compName: "",
+                phone: "",
+                address: "",
+                imageName: "",
+                imageFile: "",
+                response: "",
+                attachment: "",
+                sent: true
+            });
 
             console.log(result)
-            alert('Mail został wysłany');
         } catch (e) {
             console.error(e);
             alert("Wystąpił błąd przy wysyłaniu maila, spróbuj ponownie poźniej.")
         }
     }
 
-    async upload(e) {
-        console.log(e.target.files[0]);
-        let data = await ReactS3.uploadFile(e.target.files[0], config)
-        console.log(data);
+    uploadFile = () => {
+        Storage.put(`userFiles/${escape(this.upload.files[0].name)}`,
+            this.upload.files[0],
+            {contentType: this.upload.files[0].type})
+            .then(result => {
+                this.upload = null;
+                console.log(result)
+                this.setState({attachment: result.key})
+                this.setState({response: "Success uploading file!"});
 
-        this.setState({ "attachmentUrl": data.location })
-
-    }
+            })
+            .catch(err => {
+                this.setState({response: `Cannot uploading file: ${err}`});
+            });
+    };
 
     render() {
         return (
             <div className="App">
-                {/* <JSONPretty id="json-pretty" style={{ textAlign: "left" }} data={this.state.user}></JSONPretty> */}
-                <form onSubmit={this.handleSubmit}>
-                    <label>
-                        NIP :
+                <div className="col-md-8 offset-md-2">
+                    <div className="form-group">
+                        <label>Nip</label>
                         <input
                             type="text"
                             name="nipNip"
                             value={this.state.nipNip}
-                            onChange={this.handleChange} />
-                    </label>
-                    <label>
-                        Pełna nazwa firmy :
+                            onChange={this.handleChange}
+                            className="form-control"
+                            placeholder="Nip"/>
+                        <small className="form-text text-muted">Podaj swoj NIP
+                        </small>
+                    </div>
+
+                    <div className="form-group">
+                        <label>Pełna nazwa firmy :</label>
                         <input
                             type="text"
                             name="compName"
                             value={this.state.compName}
-                            onChange={this.handleChange} />
-                    </label>
-                    <label>
-                        Adres :
+                            onChange={this.handleChange}
+                            className="form-control"
+                            placeholder="Nazwa firmy"/>
+                        <small className="form-text text-muted">Nazwa firmy pozeoli nam ...
+                        </small>
+                    </div>
+
+                    <div className="form-group">
+                        <label>Adres</label>
                         <input
                             type="text"
                             name="address"
                             value={this.state.address}
-                            onChange={this.handleChange} />
-                    </label>
-                    <label>
-                        Dodaj plik :
+                            onChange={this.handleChange}
+                            className="form-control"
+                            placeholder="Adres firmy"/>
+                        <small className="form-text text-muted">adres firmy pozeoli nam ...
+                        </small>
+                    </div>
+
+                    <div className="form-group">
+                        <label>Telefon</label>
+                        <input
+                            type="phone"
+                            name="phone"
+                            value={this.state.phone}
+                            onChange={this.handleChange}
+                            className="form-control"
+                            placeholder="Telefon firmy"/>
+                        <small className="form-text text-muted">numer firmy pozeoli nam ...
+                        </small>
+                    </div>
+                    <div className="form-group">
+
                         <input
                             type="file"
-                            onChange={this.upload}
+                            style={{display: "none"}}
+                            ref={ref => (this.upload = ref)}
+                            onChange={e =>
+                                this.setState({
+                                    imageFile: this.upload.files[0],
+                                    imageName: this.upload.files[0].name
+                                })
+                            }
                         />
-                    </label>
-                    <input type="submit" value="Wyślij" />
-                </form>
+                        <input placeholder="Wybierz plik" value={this.state.imageName}/>
+                        <button
+                            onClick={e => {
+                                this.upload.value = null;
+                                this.upload.click();
+                            }}
+                            className="btn btn-primary"
+                        >
+                            Browse
+                        </button>
+                        <button className="btn btn-primary" onClick={this.uploadFile}>Dodaj</button>
+                        {!!this.state.response && <div className="alert alert-primary"> {this.state.response}</div>}
+                    </div>
+                    <button className="btn btn-primary" onClick={() => this.handleSubmit()}>Wyślij</button>
+                    {!!this.state.sent && <div className="alert alert-primary">Wysłano</div>}
+
+                </div>
             </div>
         );
     }
@@ -139,9 +208,3 @@ class App extends React.Component {
 export default (withAuthenticator(App, {
     includeGreetings: true,
 }));
-
-// aws cognito-idp sign-up \
-//   --region eu-west-1 \
-//   --client-id 7ubo85sakatf6d64ajll2e797f \
-//   --nipNip kubakunc@gmail.com \
-//   --password Passw0rd!
